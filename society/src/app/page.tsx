@@ -32,11 +32,13 @@ type ApiState = {
   status: "idle" | "loading" | "success" | "error";
   result?: SimulationResults;
   error?: string;
+  currentStep: "corpus" | "axis" | "simulation" | "results";
 };
 
 export default function Home() {
   const [apiState, setApiState] = useState<ApiState>({
     status: "idle",
+    currentStep: "corpus"
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
@@ -129,6 +131,13 @@ export default function Home() {
     setMessages(prev => [...prev, content].slice(-3)); // Keep last 3 messages only
   };
 
+  // On component mount, show an initial message
+  useEffect(() => {
+    if (startTransition) {
+      showBotResponse("Welcome to Society AI. Start by entering some text for analysis.");
+    }
+  }, [startTransition]);
+
   const handleSubmitCorpus = async (text: string) => {
     showBotResponse("Processing your text...");
     setApiState(prev => ({ ...prev, status: "loading" }));
@@ -151,10 +160,11 @@ export default function Home() {
         ...prev,
         corpusId: response.corpus_id,
         status: "success",
+        currentStep: "axis"
       }));
       
       showBotResponse(
-        `Text processed successfully! Corpus ID: ${response.corpus_id}. You can now generate an axis for this text by saying "Generate an axis about [topic]".`
+        `Text processed successfully! Now describe what axis you'd like to analyze it on (e.g., "political leaning", "optimism vs pessimism", etc.)`
       );
     } catch (error) {
       console.error("Error submitting corpus:", error);
@@ -163,9 +173,10 @@ export default function Home() {
     }
   };
 
-  const handleGenerateAxis = async (text: string) => {
+  const handleGenerateAxis = async (axisPrompt: string) => {
     if (!apiState.corpusId) {
       showBotResponse("Please submit a text for analysis first.");
+      setApiState(prev => ({ ...prev, currentStep: "corpus" }));
       return;
     }
     
@@ -173,10 +184,6 @@ export default function Home() {
     setApiState(prev => ({ ...prev, status: "loading" }));
     
     try {
-      const promptRegex = /generate an axis (about|for|on) (.+)/i;
-      const match = text.match(promptRegex);
-      const axisPrompt = match ? match[2].trim() : "general sentiment";
-      
       console.log(`Sending axis request with prompt: "${axisPrompt}"`);
       
       const axisData: AxisInput = {
@@ -190,12 +197,13 @@ export default function Home() {
         ...prev,
         axisId: response.axis_id,
         status: "success",
+        currentStep: "simulation"
       }));
       
-      let responseMessage = `Axis generated! ID: ${response.axis_id}`;
+      let responseMessage = `Axis generated! `;
       
       if (response.axis_ends && response.axis_ends.length >= 2) {
-        responseMessage += ` Spectrum: "${response.axis_ends[0]}" to "${response.axis_ends[1]}"`;
+        responseMessage += `Spectrum: "${response.axis_ends[0]}" to "${response.axis_ends[1]}"`;
       }
       
       if (response.aggregated_score !== undefined) {
@@ -203,7 +211,7 @@ export default function Home() {
       }
       
       showBotResponse(responseMessage);
-      showBotResponse("You can now run a simulation by saying 'Run a simulation with [number] agents'.");
+      showBotResponse("Now, enter how many simulation agents you'd like to run (e.g., '50 agents' or just a number).");
     } catch (error) {
       console.error("Error generating axis:", error);
       showBotResponse(`Failed to generate axis: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -211,20 +219,17 @@ export default function Home() {
     }
   };
 
-  const handleRunSimulation = async (text: string) => {
+  const handleRunSimulation = async (agentCount: number) => {
     if (!apiState.corpusId || !apiState.axisId) {
       showBotResponse("Please submit a text and generate an axis first.");
+      setApiState(prev => ({ ...prev, currentStep: "corpus" }));
       return;
     }
     
-    showBotResponse("Preparing to run simulation...");
+    showBotResponse(`Preparing to run simulation with ${agentCount} agents...`);
     setApiState(prev => ({ ...prev, status: "loading" }));
     
     try {
-      const agentCountRegex = /run a simulation with (\d+) agents/i;
-      const match = text.match(agentCountRegex);
-      const agentCount = match ? parseInt(match[1]) : 50;
-      
       const simulationData: SimulationInput = {
         corpus_id: apiState.corpusId,
         axis_id: apiState.axisId,
@@ -241,6 +246,7 @@ export default function Home() {
         ...prev,
         simulationId: response.simulation_id,
         status: "loading",
+        currentStep: "results"
       }));
       
       showBotResponse(`Simulation started! ID: ${response.simulation_id}`);
@@ -366,18 +372,30 @@ export default function Home() {
     console.log("Message submitted:", message);
     
     try {
-      const lowerInput = message.toLowerCase();
-      
-      if (lowerInput.includes("analyze") || lowerInput.includes("text") || lowerInput.includes("corpus")) {
-        await handleSubmitCorpus(message);
-      } else if (lowerInput.includes("generate") && lowerInput.includes("axis")) {
-        await handleGenerateAxis(message);
-      } else if (lowerInput.includes("run") && lowerInput.includes("simulation")) {
-        await handleRunSimulation(message);
-      } else if (lowerInput.includes("check") && lowerInput.includes("results")) {
-        await handleCheckResults();
-      } else {
-        showBotResponse("I can help you analyze text, generate axes, run simulations, or check results. Try saying something like 'Analyze this text...' or 'Generate an axis about...'");
+      // Follow a sequential flow based on current step
+      switch (apiState.currentStep) {
+        case "corpus":
+          await handleSubmitCorpus(message);
+          break;
+        
+        case "axis":
+          // Use the message as the axis prompt
+          await handleGenerateAxis(message);
+          break;
+        
+        case "simulation":
+          // Extract agent count if specified, otherwise use default
+          const agentCountMatch = message.match(/(\d+)/);
+          const agentCount = agentCountMatch ? parseInt(agentCountMatch[1]) : 50;
+          
+          // We'll modify handleRunSimulation to accept just the agent count
+          await handleRunSimulation(agentCount);
+          break;
+        
+        case "results":
+          // Any message in this step will check results
+          await handleCheckResults();
+          break;
       }
     } catch (error) {
       console.error("Error processing request:", error);
