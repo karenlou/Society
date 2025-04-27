@@ -70,7 +70,7 @@ export const TextInput: React.FC<TextInputProps> = ({
     <form
       onSubmit={handleSubmit}
       className={cn(
-        'flex items-end p-2 space-x-2 bg-white border border-gray-200 rounded-lg shadow-sm',
+        'flex items-end p-2 space-x-2 bg-white border-[0.5px] border-gray-200 rounded-lg w-[60px]',
         className
       )}
     >
@@ -80,7 +80,7 @@ export const TextInput: React.FC<TextInputProps> = ({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        rows={1} // Start with one row
+        rows={2}
         disabled={isLoading}
         className="flex-grow resize-none bg-transparent p-2 outline-none placeholder-gray-400 text-gray-900 text-sm max-h-40 overflow-y-auto"
         style={{ scrollbarWidth: 'none' }} // Hide scrollbar for Firefox
