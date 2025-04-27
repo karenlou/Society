@@ -13,6 +13,7 @@ interface TextInputProps {
   isCondensed?: boolean;
   onEdit?: () => void;
   initialValue?: string;
+  onEditSubmit?: () => void;
 }
 
 export const TextInput: React.FC<TextInputProps> = ({
@@ -24,6 +25,7 @@ export const TextInput: React.FC<TextInputProps> = ({
   isCondensed = false,
   onEdit,
   initialValue = '',
+  onEditSubmit,
 }) => {
   const [value, setValue] = useState(initialValue);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -107,6 +109,9 @@ export const TextInput: React.FC<TextInputProps> = ({
   const handleSubmit = (e?: FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (value.trim() && !isLoading) {
+      if (isCondensed && onEditSubmit) {
+        onEditSubmit();
+      }
       onSubmit(value.trim());
     }
   };

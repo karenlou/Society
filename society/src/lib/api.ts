@@ -309,8 +309,13 @@ async function uploadToStorage(file: File): Promise<string> {
       });
     
     if (uploadError) {
+      // Directly throw the Supabase error if upload fails
       console.error("Error uploading to Supabase:", uploadError);
-      throw new Error(`Failed to upload file: ${uploadError.message}`);
+      // Use a more specific error message if available, otherwise stringify
+      const errorMessage = typeof uploadError === 'object' && uploadError !== null && 'message' in uploadError 
+                           ? (uploadError as { message: string }).message 
+                           : JSON.stringify(uploadError);
+      throw new Error(`Failed to upload file to Supabase: ${errorMessage}`);
     }
     
     // Get the public URL for the uploaded file
@@ -320,21 +325,15 @@ async function uploadToStorage(file: File): Promise<string> {
       .getPublicUrl(filePath);
     
     if (!data || !data.publicUrl) {
-      throw new Error("Failed to get public URL from Supabase");
+      throw new Error("Failed to get public URL from Supabase after successful upload");
     }
     
     console.log("File successfully uploaded to Supabase, URL:", data.publicUrl);
     return data.publicUrl;
   } catch (error) {
-    console.error("Error in Supabase storage upload:", error);
-    
-    // Fallback to a mock URL if in development mode
-    if (process.env.NODE_ENV === 'development') {
-      console.warn("Using mock URL due to Supabase error in dev mode");
-      return `https://example-storage.supabase.co/storage/v1/object/public/${SUPABASE_CONFIG.bucket}/${filePath}`;
-    }
-    
-    throw error;
+    // Re-throw the error to be caught by the calling function (submitMultimedia)
+    console.error("Error during Supabase storage operation:", error);
+    throw error; 
   }
 }
 

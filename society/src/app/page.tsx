@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import Gravity, {
   MatterBody,
 } from "@/fancy/components/physics/cursor-attractor-and-gravity"
-import { TextInput, LensInput } from '@/components/Both';
+import { LensInput } from '@/components/Both';
+import { TextInput } from '@/components/TextInput';
 
 import {
   CorpusInput,
@@ -18,7 +19,6 @@ import {
   getSimulationResults,
   pollSimulationResults,
   MediaType,
-  submitMultimedia,
   generateMultimediaAxis,
 } from "@/lib/api";
 
@@ -57,7 +57,6 @@ export default function Home() {
   const [isFirstInputCondensed, setIsFirstInputCondensed] = useState(false);
   const [isSecondInputVisible, setIsSecondInputVisible] = useState(false);
   const [isSecondInputCondensed, setIsSecondInputCondensed] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isLensLoading, setIsLensLoading] = useState(false);
   const [submittedMessage, setSubmittedMessage] = useState('');
   const [submittedLens, setSubmittedLens] = useState('');
@@ -384,6 +383,16 @@ export default function Home() {
     }
   };
 
+  // Handler for file uploads
+  const handleFileUpload = (file: File, mediaType: MediaType) => {
+    console.log("File uploaded:", file.name, "Type:", mediaType);
+    setIsFileUpload(true);
+    showBotResponse(`File "${file.name}" uploaded. Processing as ${mediaType}...`);
+    
+    // Here you could add logic to handle the file upload using submitMultimedia
+    // This is just a placeholder that sets the flag
+  };
+
   // Handler for the TextInput submission
   const handleSendMessage = async (message: string) => {
     if (!message.trim() || isSubmitting) return;
@@ -391,11 +400,10 @@ export default function Home() {
     setIsSubmitting(true);
     console.log("Message submitted:", message);
     setSubmittedMessage(message);
-    setIsLoading(true);
     
     // Use a smoother animation sequence with precise timing
     setTimeout(() => {
-      setIsLoading(false);
+      setIsSubmitting(false);
       
       // Add a small delay before starting the condensing animation
       setTimeout(() => {
@@ -405,6 +413,9 @@ export default function Home() {
         // Wait until the first input is mostly condensed
         setTimeout(() => {
           setIsSecondInputVisible(true);
+          
+          // Process the text through the API
+          handleSubmitCorpus(message);
         }, 250); // Slightly shorter delay for a more connected feel
       }, 50); // Very slight delay for visual separation
     }, 2000);
@@ -422,7 +433,10 @@ export default function Home() {
       setIsLensLoading(false);
       setIsSecondInputCondensed(true);
       
-      // Add any additional logic here after lens is submitted
+      // Process the lens through the API
+      if (apiState.corpusId) {
+        handleGenerateAxis(lens);
+      }
     }, 2000);
   };
 
@@ -452,6 +466,31 @@ export default function Home() {
   const handleEditLens = () => {
     setIsSecondInputCondensed(false);
   };
+
+  // Add a function to listen to user messages
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    
+    // If we're waiting for simulation parameters and the user has entered something
+    if (apiState.currentStep === "simulation" && lastMessage && !lastMessage.startsWith("Now, enter")) {
+      // Try to extract a number from the message
+      const match = lastMessage.match(/\b(\d+)\b/);
+      if (match && match[1]) {
+        const agentCount = parseInt(match[1], 10);
+        if (!isNaN(agentCount) && agentCount > 0) {
+          handleRunSimulation(agentCount);
+        }
+      }
+    }
+    
+    // If we're waiting for results and we received a message about checking
+    if (apiState.currentStep === "results" && 
+        lastMessage && 
+        (lastMessage.toLowerCase().includes("check") || 
+         lastMessage.toLowerCase().includes("result"))) {
+      handleCheckResults();
+    }
+  }, [messages, apiState.currentStep, apiState.simulationId, handleRunSimulation, handleCheckResults]);
 
   return (
     <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-300 ease-in-out ${getBgColor()} overflow-hidden`}>
@@ -531,12 +570,11 @@ export default function Home() {
           <TextInput 
             onSubmit={handleSendMessage}
             onEditSubmit={handleMessageEditSubmit}
-            isLoading={isLoading && !isSecondInputVisible}
+            isLoading={isSubmitting}
             isCondensed={isFirstInputCondensed}
             onEdit={handleEditMessage}
             initialValue={submittedMessage}
             onFileUpload={handleFileUpload}
-            isLoading={isSubmitting}
             className={`${!startTransition ? 'invisible' : ''}`} 
           />
         </div>
@@ -559,17 +597,7 @@ export default function Home() {
           />
         </div>
       </div>
-      {/* Bot responses */}
-      <div className="mt-4 space-y-2">
-          {messages.map((message, index) => (
-            <div 
-              key={index} 
-              className="bg-black bg-opacity-80 text-white p-3 rounded-lg max-w-[80%] ml-auto animation-pop-in"
-            >
-              {message}
-            </div>
-          ))}
-        </div>
+      
 
     </div>
   );
