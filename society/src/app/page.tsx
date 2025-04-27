@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import Gravity, {
   MatterBody,
 } from "@/fancy/components/physics/cursor-attractor-and-gravity"
+import { TextInput, LensInput } from '@/components/Both';
 
-import { TextInput } from '@/components/TextInput';
 import {
   CorpusInput,
   AxisInput,
@@ -54,6 +54,13 @@ export default function Home() {
   const [showSociety, setShowSociety] = useState(false);
   const [showExplodingCircle, setShowExplodingCircle] = useState(false);
   const [startTransition, setStartTransition] = useState(false);
+  const [isFirstInputCondensed, setIsFirstInputCondensed] = useState(false);
+  const [isSecondInputVisible, setIsSecondInputVisible] = useState(false);
+  const [isSecondInputCondensed, setIsSecondInputCondensed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLensLoading, setIsLensLoading] = useState(false);
+  const [submittedMessage, setSubmittedMessage] = useState('');
+  const [submittedLens, setSubmittedLens] = useState('');
 
   useEffect(() => {
     const handleResize = () => setVw(window.innerWidth);
@@ -383,90 +390,67 @@ export default function Home() {
     
     setIsSubmitting(true);
     console.log("Message submitted:", message);
+    setSubmittedMessage(message);
+    setIsLoading(true);
     
-    try {
-      // Follow a sequential flow based on current step
-      switch (apiState.currentStep) {
-        case "corpus":
-          await handleSubmitCorpus(message);
-          break;
+    // Use a smoother animation sequence with precise timing
+    setTimeout(() => {
+      setIsLoading(false);
+      
+      // Add a small delay before starting the condensing animation
+      setTimeout(() => {
+        setIsFirstInputCondensed(true);
         
-        case "axis":
-          // Use the message as the axis prompt
-          await handleGenerateAxis(message);
-          break;
-        
-        case "simulation":
-          // Extract agent count if specified, otherwise use default
-          const agentCountMatch = message.match(/(\d+)/);
-          const agentCount = agentCountMatch ? parseInt(agentCountMatch[1]) : 50;
-          
-          // We'll modify handleRunSimulation to accept just the agent count
-          await handleRunSimulation(agentCount);
-          break;
-        
-        case "results":
-          // Any message in this step will check results
-          await handleCheckResults();
-          break;
-      }
-    } catch (error) {
-      console.error("Error processing request:", error);
-      showBotResponse(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsSubmitting(false);
-    }
+        // Stagger the second input appearance for a more natural flow
+        // Wait until the first input is mostly condensed
+        setTimeout(() => {
+          setIsSecondInputVisible(true);
+        }, 250); // Slightly shorter delay for a more connected feel
+      }, 50); // Very slight delay for visual separation
+    }, 2000);
   };
 
-  // Handler for file uploads
-  const handleFileUpload = async (file: File, mediaType: MediaType) => {
-    if (isSubmitting) return;
+  // Handler for the LensInput submission
+  const handleSendLens = (lens: string) => {
+    console.log("Lens submitted:", lens);
+    setSubmittedLens(lens);
     
-    setIsSubmitting(true);
-    setIsFileUpload(true);
+    // Set loading only for lens submission
+    setIsLensLoading(true);
     
-    try {
-      showBotResponse(`Processing your ${mediaType} file: ${file.name}...`);
-      setApiState(prev => ({ ...prev, status: "loading" }));
+    setTimeout(() => {
+      setIsLensLoading(false);
+      setIsSecondInputCondensed(true);
       
-      // Submit the multimedia file
-      const response = await submitMultimedia(file, mediaType);
-      
-      setApiState(prev => ({
-        ...prev,
-        corpusId: response.corpus_id,
-        status: "success",
-        currentStep: "axis"
-      }));
-      
-      // Show metadata about the processed file
-      let responseMessage = `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} processed successfully!`;
-      
-      if (response.chunk_count) {
-        responseMessage += ` Split into ${response.chunk_count} chunks.`;
-      }
-      
-      if (response.duration_seconds) {
-        const minutes = Math.floor(response.duration_seconds / 60);
-        const seconds = Math.floor(response.duration_seconds % 60);
-        responseMessage += ` Duration: ${minutes}m ${seconds}s.`;
-      }
-      
-      if (response.first_chunk_preview) {
-        responseMessage += `\nPreview: "${response.first_chunk_preview}"`;
-      }
-      
-      showBotResponse(responseMessage);
-      showBotResponse(
-        `Now describe what axis you'd like to analyze it on (e.g., "political leaning", "optimism vs pessimism", etc.)`
-      );
-    } catch (error) {
-      console.error("Error processing file:", error);
-      showBotResponse(`Failed to process file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
-    } finally {
-      setIsSubmitting(false);
-    }
+      // Add any additional logic here after lens is submitted
+    }, 2000);
+  };
+
+  // Add this function to handle the Edit button click
+  const handleEditMessage = () => {
+    // Uncondense the first input
+    setIsFirstInputCondensed(false);
+    
+    // Completely reset the second input
+    setSubmittedLens('');
+    setIsSecondInputCondensed(false);
+    setIsSecondInputVisible(false);
+    
+    // The default placeholder text is automatically shown when the component
+    // reappears because we're setting submittedLens to an empty string
+    // and the LensInput component has the placeholder text built in
+  };
+
+  // Add this function to handle when the message is edited and resubmitted
+  const handleMessageEditSubmit = () => {
+    // This function is no longer needed since we're now handling the reset
+    // in the handleEditMessage function above
+    console.log("Message edited and resubmitted");
+  };
+
+  // Handler for editing the lens
+  const handleEditLens = () => {
+    setIsSecondInputCondensed(false);
   };
 
   return (
@@ -484,16 +468,16 @@ export default function Home() {
           }}
         />
         <Gravity
-          attractorStrength={0.0}
-          cursorStrength={0.00025}
-          cursorFieldRadius={100}
-          className="w-full h-full z-0 absolute"
-        >
+        attractorStrength={0.0}
+        cursorStrength={0.0004}
+        cursorFieldRadius={200}
+        className="w-full h-full z-0 absolute"
+      >
           {circles.map((circle, i) => (
             <MatterBody
               key={i}
               matterBodyOptions={{
-                friction: 0.2,
+                friction: 0.5,
                 frictionAir: 0.05,
                 restitution: 0.2
               }}
@@ -536,20 +520,47 @@ export default function Home() {
                     ${stage === 2 ? 'animate-[dropAccelerateThenExplode_0.5s_linear_forwards]' : ''}`}
       />
 
-      <div 
-        className={`w-full max-w-md px-4 z-20 
-                     transition-all duration-300 ease-in-out transform-gpu 
-                     ${startTransition ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
-      >
-        <TextInput 
-          onSubmit={handleSendMessage} 
-          onFileUpload={handleFileUpload}
-          className={`${!startTransition ? 'invisible' : ''}`} 
-          isLoading={isSubmitting}
-        />
-
-        {/* Bot responses */}
-        <div className="mt-4 space-y-2">
+<div className="w-full max-w-md px-4 z-20 relative">
+        {/* First TextInput */}
+        <div 
+          className={`
+            transform-gpu transition-opacity duration-400 ease-out
+            ${startTransition ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}
+          `}
+        >
+          <TextInput 
+            onSubmit={handleSendMessage}
+            onEditSubmit={handleMessageEditSubmit}
+            isLoading={isLoading && !isSecondInputVisible}
+            isCondensed={isFirstInputCondensed}
+            onEdit={handleEditMessage}
+            initialValue={submittedMessage}
+            onFileUpload={handleFileUpload}
+            isLoading={isSubmitting}
+            className={`${!startTransition ? 'invisible' : ''}`} 
+          />
+        </div>
+        
+        {/* Second input (LensInput) */}
+        <div 
+          className={`
+            mt-5 transform-gpu transition-all duration-500 ease-out
+            ${isSecondInputVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-10 pointer-events-none'}
+          `}
+        >
+          <LensInput 
+            onSubmit={handleSendLens}
+            isLoading={isLensLoading}
+            isCondensed={isSecondInputCondensed}
+            onEdit={handleEditLens}
+            initialValue={submittedLens}
+          />
+        </div>
+      </div>
+      {/* Bot responses */}
+      <div className="mt-4 space-y-2">
           {messages.map((message, index) => (
             <div 
               key={index} 
@@ -559,7 +570,7 @@ export default function Home() {
             </div>
           ))}
         </div>
-      </div>
+
     </div>
   );
 }
