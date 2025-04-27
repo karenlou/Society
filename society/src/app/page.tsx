@@ -37,6 +37,9 @@ export default function Home() {
   const [vw, setVw] = useState<number | null>(null);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [stage, setStage] = useState(0);
+  const [showSociety, setShowSociety] = useState(false);
+  const [showExplodingCircle, setShowExplodingCircle] = useState(false);
+  const [startTransition, setStartTransition] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setVw(window.innerWidth);
@@ -71,34 +74,54 @@ export default function Home() {
   }, [vw]);
 
   useEffect(() => {
-    const timer1 = setTimeout(() => {
+    let societyTimer: NodeJS.Timeout | undefined;
+    let circleTimer: NodeJS.Timeout | undefined;
+    let transitionTimer: NodeJS.Timeout | undefined;
+
+    const stage1Timer = setTimeout(() => {
       setStage(1);
+      
+      societyTimer = setTimeout(() => {
+        setShowSociety(true);
+
+        circleTimer = setTimeout(() => {
+          setShowExplodingCircle(true);
+        }, 1000); 
+
+      }, 1000); 
+
     }, 1000);
 
-    const timer2 = setTimeout(() => {
+    const stage2Timer = setTimeout(() => {
       setStage(2);
-    }, 2500);
+      transitionTimer = setTimeout(() => {
+        setStartTransition(true);
+      }, 300);
+    }, 4000);
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      clearTimeout(stage1Timer);
+      clearTimeout(societyTimer);
+      clearTimeout(circleTimer);
+      clearTimeout(stage2Timer);
+      clearTimeout(transitionTimer);
     };
   }, []);
 
   const getBgColor = () => {
-    if (stage < 2) return 'bg-black';
+    if (!startTransition) return 'bg-black';
     return 'bg-white';
   };
 
   const getTextColor = (finalColor: string) => {
-    if (stage < 2) return 'text-stone-200';
+    if (!startTransition) return 'text-stone-200';
     return finalColor;
   };
 
   return (
-    <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-1000 ease-in-out ${getBgColor()}`}>
+    <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-300 ease-in-out ${getBgColor()} overflow-hidden`}>
       
-      <div className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${stage === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${startTransition ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <div
           className="absolute inset-0 z-0 opacity-30"
           style={{
@@ -141,15 +164,21 @@ export default function Home() {
       </div>
 
       <div className={`flex flex-col items-center justify-center z-10 transition-opacity duration-1000 ease-in-out ${stage >= 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <h1 className={`text-3xl text-center leading-none transition-colors duration-1000 ease-in-out ${getTextColor('text-gray-900')}`}>
-          <span className={`block z-10 sm:text-sm text-black px-4 font-geist-mono transition-colors duration-1000 ease-in-out ${getTextColor('text-black')} animate-[fadeIn_1s_ease-in_forwards]`}>
+        <h1 className={`text-3xl text-center leading-none transition-colors duration-300 ease-in-out ${getTextColor('text-gray-900')}`}>
+          <span className={`block z-10 sm:text-sm text-black px-4 font-geist-mono transition-colors duration-300 ease-in-out ${getTextColor('text-black')} animate-[fadeIn_1s_ease-in_forwards]`}>
             WELCOME TO
           </span>
-          <span className={`block text-3xl font-normal transition-colors duration-1000 ease-in-out ${getTextColor('text-gray-900')} animate-[fadeIn_1s_ease-in_1s_forwards]`}>
+          <span className={`block text-3xl font-normal transition-colors duration-300 ease-in-out ${getTextColor('text-gray-900')} ${showSociety ? 'animate-[fadeIn_1s_ease-in_forwards]' : 'opacity-0'}`}>
             Society
           </span>
         </h1>
       </div>
+
+      <div 
+        className={`absolute w-6 h-6 bg-white rounded-full z-5 left-1/2 -translate-x-1/2 top-1/2 transition-opacity duration-1000 ease-in-out
+                    ${showExplodingCircle ? 'opacity-100 transform translate-y-8' : 'opacity-0 pointer-events-none transform translate-y-8'}
+                    ${stage === 2 ? 'animate-[dropAccelerateThenExplode_0.5s_linear_forwards]' : ''}`}
+      />
     </div>
   );
 }
