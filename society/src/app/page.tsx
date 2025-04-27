@@ -1,103 +1,123 @@
+"use client"
+
 import Image from "next/image";
+import { useEffect, useState } from "react";
+
+import Gravity, {
+  MatterBody,
+} from "@/fancy/components/physics/cursor-attractor-and-gravity"
+
+type Circle = {
+  size: number;
+  color: string;
+  x: number;
+  y: number;
+};
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Testing
-          </li>
-        </ol>
+  const words = [
+    "we",
+    "analyze",
+    { text: "millions", highlight: true },
+    { text: "of", highlight: true },
+    { text: "data", highlight: true },
+    { text: "points", highlight: true },
+    "per",
+    "second",
+    "to",
+    "provide",
+    "you",
+    "with",
+    "the",
+    "most",
+    "accurate",
+    "insights.",
+  ]
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  const [vw, setVw] = useState<number | null>(null);
+  const [circles, setCircles] = useState<Circle[]>([]);
+
+  // ➊ Get viewport width once (or on resize if you like)
+  useEffect(() => {
+    const handleResize = () => setVw(window.innerWidth);
+    handleResize();                  // set initial value
+    window.addEventListener("resize", handleResize);   // optional
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (vw === null) return;
+    const colors = [
+      "#83D0DB", "#0B7FBA", "#DD850D", "#F0551F", "#008046",
+      "#DECBDF", "#2F274D", "#7CA34C", "#F8D054", "#FFBCB9"
+    ];
+    const arr = Array.from({ length: 150 }).map(() => {
+      const width = vw;
+      const maxSize =
+        width < 640   ? 20 :
+        width < 768   ? 30 :
+                        40;
+      const minSize = width < 640 ? 10 : 20;
+      const size = Math.max(minSize, Math.random() * maxSize);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      return {
+        size,
+        color,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+      };
+    });
+    setCircles(arr);
+  }, [vw]);
+
+  return (
+    <div className="w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center bg-white">
+      {/* Background image layer */}
+      <div
+        className="absolute inset-0 z-0 opacity-40"
+        style={{
+          backgroundImage: "url('/CanvasBg.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          pointerEvents: "none", // so it doesn't block interaction
+        }}
+      />
+      <Gravity
+        attractorStrength={0.0}
+        cursorStrength={0.0004}
+        cursorFieldRadius={200}
+        className="w-full h-full z-0 absolute"
+      > 
+      {circles.map((circle, i) => (
+        <MatterBody
+          key={i}
+          matterBodyOptions={{ friction: 0.5, restitution: 0.2 }}
+          x={`${circle.x}%`}
+          y={`${circle.y}%`}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+          <div
+            className="rounded-full"
+            style={{
+              width: `${circle.size}px`,
+              height: `${circle.size}px`,
+              backgroundColor: circle.color,
+              opacity: 0.9,
+            }}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </MatterBody>
+      ))}
+      </Gravity>
+      <div className="flex flex-col items-center justify-center z-10">
+        <h1 className="text-3xl text-gray-900 text-center">
+          <span className="block z-10 sm:text-sm md:text-lg text-black px-4 py-2 font-geist-mono opacity-0 animate-[fadeIn_1s_ease-in_forwards]">
+            WELCOME TO
+          </span>
+          <span className="block opacity-0 animate-[fadeIn_1s_ease-in_1s_forwards] text-3xl font-normal mt-2">
+            Society
+          </span>
+        </h1>
+      </div>
     </div>
   );
 }
