@@ -61,7 +61,7 @@ export default function Chat() {
 
   const addMessage = (type: MessageType, content: string) => {
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type,
       content,
     };
@@ -174,9 +174,21 @@ export default function Chat() {
         status: "success",
       }));
       
-      addBotResponse(
-        `Axis generated successfully!\n\nAxis ID: ${response.axis_id}\n\nDescription: ${response.description}\n\nScale: From "${response.scale.min_label}" (${response.scale.min}) to "${response.scale.max_label}" (${response.scale.max})\n\nYou can now run a simulation by saying "Run a simulation with [number] agents".`
-      );
+      // Handle the actual API response format
+      let responseMessage = `Axis generated successfully!\n\nAxis ID: ${response.axis_id}`;
+      
+      // Use axis_ends instead of scale
+      if (response.axis_ends && response.axis_ends.length >= 2) {
+        responseMessage += `\n\nAxis spectrum: From "${response.axis_ends[0]}" to "${response.axis_ends[1]}"`;
+      }
+      
+      if (response.aggregated_score !== undefined) {
+        responseMessage += `\n\nAggregated score: ${response.aggregated_score.toFixed(2)}`;
+      }
+      
+      responseMessage += `\n\nYou can now run a simulation by saying "Run a simulation with [number] agents".`;
+      
+      addBotResponse(responseMessage);
     } catch (error) {
       console.error("Error generating axis:", error);
       addBotResponse(`Failed to generate axis: ${error instanceof Error ? error.message : 'Unknown error'}`);

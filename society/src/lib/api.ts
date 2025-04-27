@@ -30,14 +30,22 @@ export type AxisInput = {
 export type AxisResponse = {
   axis_id: string;
   corpus_id: string;
-  description: string;
-  scale: {
-    min: number;
-    max: number;
-    min_label: string;
-    max_label: string;
-    neutral_label?: string;
-  };
+  axis_ends: string[];
+  chunk_count: number;
+  chunk_scores: Array<{
+    chunk_index: number;
+    avg_score: number;
+  }>;
+  agent_chunk_scores?: Array<{
+    chunk_index: number;
+    agent_scores: Array<{
+      agent_id: string;
+      score: number;
+      metadata?: Record<string, string | number | boolean>;
+    }>;
+    distribution_stats?: Record<string, number>;
+  }>;
+  aggregated_score: number;
 };
 
 export type SimulationInput = {
