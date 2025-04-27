@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 import Gravity, {
   MatterBody,
@@ -117,6 +118,19 @@ export default function Home() {
             Society
           </span>
         </h1>
+        
+        {/* Chat button added here */}
+        <div className="mt-12 opacity-0 animate-[fadeIn_1s_ease-in_2s_forwards]">
+          <Link 
+            href="/chat" 
+            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full py-3 px-6 shadow-lg flex items-center gap-2 transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            Try Chat Interface
+          </Link>
+        </div>
       </div>
     </div>
   );
