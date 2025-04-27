@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import Gravity, {
   MatterBody,
 } from "@/fancy/components/physics/cursor-attractor-and-gravity"
+
+import Chat2 from "@/app/components/chat2";
 import { TextInput } from '@/components/TextInput';
 import {
   CorpusInput,
@@ -64,9 +66,9 @@ export default function Home() {
     const arr = Array.from({ length: 150 }).map(() => {
       const width = vw;
       const maxSize =
-        width < 640   ? 20 :
-        width < 768   ? 30 :
-                        40;
+        width < 640 ? 20 :
+          width < 768 ? 30 :
+            40;
       const minSize = width < 640 ? 10 : 20;
       const size = Math.max(minSize, Math.random() * maxSize);
       const color = colors[Math.floor(Math.random() * colors.length)];
