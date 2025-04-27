@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Gravity, {
   MatterBody,
 } from "@/fancy/components/physics/cursor-attractor-and-gravity"
+import { TextInput } from '@/components/TextInput';
 
 type Circle = {
   size: number;
@@ -118,6 +119,12 @@ export default function Home() {
     return finalColor;
   };
 
+  // Handler for the TextInput submission
+  const handleSendMessage = (message: string) => {
+    console.log("Message submitted:", message);
+    // TODO: Add logic to actually send/process the message
+  };
+
   return (
     <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-300 ease-in-out ${getBgColor()} overflow-hidden`}>
       
@@ -172,6 +179,14 @@ export default function Home() {
             Society
           </span>
         </h1>
+
+        <div className={`w-full max-w-2xl px-4 mt-5 transition-opacity duration-300 ease-in-out ${startTransition ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <TextInput 
+            onSubmit={handleSendMessage} 
+            className={`${!startTransition ? 'invisible' : ''}`}
+          />
+        </div>
+
       </div>
 
       <div 
