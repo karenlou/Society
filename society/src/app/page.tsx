@@ -6,7 +6,6 @@ import Gravity, {
   MatterBody,
 } from "@/fancy/components/physics/cursor-attractor-and-gravity"
 
-import Chat2 from "@/app/components/chat2";
 import { TextInput } from '@/components/TextInput';
 import {
   CorpusInput,
@@ -18,6 +17,9 @@ import {
   runSimulation,
   getSimulationResults,
   pollSimulationResults,
+  MediaType,
+  submitMultimedia,
+  generateMultimediaAxis,
 } from "@/lib/api";
 
 type Circle = {
@@ -44,6 +46,7 @@ export default function Home() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
+  const [isFileUpload, setIsFileUpload] = useState(false);
 
   const [vw, setVw] = useState<number | null>(null);
   const [circles, setCircles] = useState<Circle[]>([]);
@@ -188,12 +191,20 @@ export default function Home() {
     try {
       console.log(`Sending axis request with prompt: "${axisPrompt}"`);
       
-      const axisData: AxisInput = {
-        corpus_id: apiState.corpusId,
-        axis_prompt: axisPrompt,
-      };
+      let response;
       
-      const response = await generateAxis(axisData);
+      if (isFileUpload) {
+        // For multimedia files, use the dedicated endpoint
+        response = await generateMultimediaAxis(apiState.corpusId, axisPrompt);
+      } else {
+        // For text corpus, use the standard endpoint
+        const axisData: AxisInput = {
+          corpus_id: apiState.corpusId,
+          axis_prompt: axisPrompt,
+        };
+        
+        response = await generateAxis(axisData);
+      }
       
       setApiState(prev => ({
         ...prev,
@@ -407,6 +418,57 @@ export default function Home() {
     }
   };
 
+  // Handler for file uploads
+  const handleFileUpload = async (file: File, mediaType: MediaType) => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    setIsFileUpload(true);
+    
+    try {
+      showBotResponse(`Processing your ${mediaType} file: ${file.name}...`);
+      setApiState(prev => ({ ...prev, status: "loading" }));
+      
+      // Submit the multimedia file
+      const response = await submitMultimedia(file, mediaType);
+      
+      setApiState(prev => ({
+        ...prev,
+        corpusId: response.corpus_id,
+        status: "success",
+        currentStep: "axis"
+      }));
+      
+      // Show metadata about the processed file
+      let responseMessage = `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} processed successfully!`;
+      
+      if (response.chunk_count) {
+        responseMessage += ` Split into ${response.chunk_count} chunks.`;
+      }
+      
+      if (response.duration_seconds) {
+        const minutes = Math.floor(response.duration_seconds / 60);
+        const seconds = Math.floor(response.duration_seconds % 60);
+        responseMessage += ` Duration: ${minutes}m ${seconds}s.`;
+      }
+      
+      if (response.first_chunk_preview) {
+        responseMessage += `\nPreview: "${response.first_chunk_preview}"`;
+      }
+      
+      showBotResponse(responseMessage);
+      showBotResponse(
+        `Now describe what axis you'd like to analyze it on (e.g., "political leaning", "optimism vs pessimism", etc.)`
+      );
+    } catch (error) {
+      console.error("Error processing file:", error);
+      showBotResponse(`Failed to process file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-300 ease-in-out ${getBgColor()} overflow-hidden`}>
       
@@ -481,6 +543,7 @@ export default function Home() {
       >
         <TextInput 
           onSubmit={handleSendMessage} 
+          onFileUpload={handleFileUpload}
           className={`${!startTransition ? 'invisible' : ''}`} 
           isLoading={isSubmitting}
         />
