@@ -5,9 +5,9 @@ import { useEffect, useState } from "react";
 import Gravity, {
   MatterBody,
 } from "@/fancy/components/physics/cursor-attractor-and-gravity"
-
-import Chat2 from "@/app/components/chat2";
+import { LensInput } from '@/components/Both';
 import { TextInput } from '@/components/TextInput';
+
 import {
   CorpusInput,
   AxisInput,
@@ -18,6 +18,8 @@ import {
   runSimulation,
   getSimulationResults,
   pollSimulationResults,
+  MediaType,
+  generateMultimediaAxis,
 } from "@/lib/api";
 
 type Circle = {
@@ -34,14 +36,17 @@ type ApiState = {
   status: "idle" | "loading" | "success" | "error";
   result?: SimulationResults;
   error?: string;
+  currentStep: "corpus" | "axis" | "simulation" | "results";
 };
 
 export default function Home() {
   const [apiState, setApiState] = useState<ApiState>({
     status: "idle",
+    currentStep: "corpus"
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
+  const [isFileUpload, setIsFileUpload] = useState(false);
 
   const [vw, setVw] = useState<number | null>(null);
   const [circles, setCircles] = useState<Circle[]>([]);
@@ -49,6 +54,12 @@ export default function Home() {
   const [showSociety, setShowSociety] = useState(false);
   const [showExplodingCircle, setShowExplodingCircle] = useState(false);
   const [startTransition, setStartTransition] = useState(false);
+  const [isFirstInputCondensed, setIsFirstInputCondensed] = useState(false);
+  const [isSecondInputVisible, setIsSecondInputVisible] = useState(false);
+  const [isSecondInputCondensed, setIsSecondInputCondensed] = useState(false);
+  const [isLensLoading, setIsLensLoading] = useState(false);
+  const [submittedMessage, setSubmittedMessage] = useState('');
+  const [submittedLens, setSubmittedLens] = useState('');
 
   useEffect(() => {
     const handleResize = () => setVw(window.innerWidth);
@@ -131,6 +142,13 @@ export default function Home() {
     setMessages(prev => [...prev, content].slice(-3)); // Keep last 3 messages only
   };
 
+  // On component mount, show an initial message
+  useEffect(() => {
+    if (startTransition) {
+      showBotResponse("Welcome to Society AI. Start by entering some text for analysis.");
+    }
+  }, [startTransition]);
+
   const handleSubmitCorpus = async (text: string) => {
     showBotResponse("Processing your text...");
     setApiState(prev => ({ ...prev, status: "loading" }));
@@ -153,10 +171,11 @@ export default function Home() {
         ...prev,
         corpusId: response.corpus_id,
         status: "success",
+        currentStep: "axis"
       }));
       
       showBotResponse(
-        `Text processed successfully! Corpus ID: ${response.corpus_id}. You can now generate an axis for this text by saying "Generate an axis about [topic]".`
+        `Text processed successfully! Now describe what axis you'd like to analyze it on (e.g., "political leaning", "optimism vs pessimism", etc.)`
       );
     } catch (error) {
       console.error("Error submitting corpus:", error);
@@ -165,9 +184,10 @@ export default function Home() {
     }
   };
 
-  const handleGenerateAxis = async (text: string) => {
+  const handleGenerateAxis = async (axisPrompt: string) => {
     if (!apiState.corpusId) {
       showBotResponse("Please submit a text for analysis first.");
+      setApiState(prev => ({ ...prev, currentStep: "corpus" }));
       return;
     }
     
@@ -175,29 +195,34 @@ export default function Home() {
     setApiState(prev => ({ ...prev, status: "loading" }));
     
     try {
-      const promptRegex = /generate an axis (about|for|on) (.+)/i;
-      const match = text.match(promptRegex);
-      const axisPrompt = match ? match[2].trim() : "general sentiment";
-      
       console.log(`Sending axis request with prompt: "${axisPrompt}"`);
       
-      const axisData: AxisInput = {
-        corpus_id: apiState.corpusId,
-        axis_prompt: axisPrompt,
-      };
+      let response;
       
-      const response = await generateAxis(axisData);
+      if (isFileUpload) {
+        // For multimedia files, use the dedicated endpoint
+        response = await generateMultimediaAxis(apiState.corpusId, axisPrompt);
+      } else {
+        // For text corpus, use the standard endpoint
+        const axisData: AxisInput = {
+          corpus_id: apiState.corpusId,
+          axis_prompt: axisPrompt,
+        };
+        
+        response = await generateAxis(axisData);
+      }
       
       setApiState(prev => ({
         ...prev,
         axisId: response.axis_id,
         status: "success",
+        currentStep: "simulation"
       }));
       
-      let responseMessage = `Axis generated! ID: ${response.axis_id}`;
+      let responseMessage = `Axis generated! `;
       
       if (response.axis_ends && response.axis_ends.length >= 2) {
-        responseMessage += ` Spectrum: "${response.axis_ends[0]}" to "${response.axis_ends[1]}"`;
+        responseMessage += `Spectrum: "${response.axis_ends[0]}" to "${response.axis_ends[1]}"`;
       }
       
       if (response.aggregated_score !== undefined) {
@@ -205,7 +230,7 @@ export default function Home() {
       }
       
       showBotResponse(responseMessage);
-      showBotResponse("You can now run a simulation by saying 'Run a simulation with [number] agents'.");
+      showBotResponse("Now, enter how many simulation agents you'd like to run (e.g., '50 agents' or just a number).");
     } catch (error) {
       console.error("Error generating axis:", error);
       showBotResponse(`Failed to generate axis: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -213,20 +238,17 @@ export default function Home() {
     }
   };
 
-  const handleRunSimulation = async (text: string) => {
+  const handleRunSimulation = async (agentCount: number) => {
     if (!apiState.corpusId || !apiState.axisId) {
       showBotResponse("Please submit a text and generate an axis first.");
+      setApiState(prev => ({ ...prev, currentStep: "corpus" }));
       return;
     }
     
-    showBotResponse("Preparing to run simulation...");
+    showBotResponse(`Preparing to run simulation with ${agentCount} agents...`);
     setApiState(prev => ({ ...prev, status: "loading" }));
     
     try {
-      const agentCountRegex = /run a simulation with (\d+) agents/i;
-      const match = text.match(agentCountRegex);
-      const agentCount = match ? parseInt(match[1]) : 50;
-      
       const simulationData: SimulationInput = {
         corpus_id: apiState.corpusId,
         axis_id: apiState.axisId,
@@ -243,6 +265,7 @@ export default function Home() {
         ...prev,
         simulationId: response.simulation_id,
         status: "loading",
+        currentStep: "results"
       }));
       
       showBotResponse(`Simulation started! ID: ${response.simulation_id}`);
@@ -360,34 +383,114 @@ export default function Home() {
     }
   };
 
+  // Handler for file uploads
+  const handleFileUpload = (file: File, mediaType: MediaType) => {
+    console.log("File uploaded:", file.name, "Type:", mediaType);
+    setIsFileUpload(true);
+    showBotResponse(`File "${file.name}" uploaded. Processing as ${mediaType}...`);
+    
+    // Here you could add logic to handle the file upload using submitMultimedia
+    // This is just a placeholder that sets the flag
+  };
+
   // Handler for the TextInput submission
   const handleSendMessage = async (message: string) => {
     if (!message.trim() || isSubmitting) return;
     
     setIsSubmitting(true);
     console.log("Message submitted:", message);
+    setSubmittedMessage(message);
     
-    try {
-      const lowerInput = message.toLowerCase();
-      
-      if (lowerInput.includes("analyze") || lowerInput.includes("text") || lowerInput.includes("corpus")) {
-        await handleSubmitCorpus(message);
-      } else if (lowerInput.includes("generate") && lowerInput.includes("axis")) {
-        await handleGenerateAxis(message);
-      } else if (lowerInput.includes("run") && lowerInput.includes("simulation")) {
-        await handleRunSimulation(message);
-      } else if (lowerInput.includes("check") && lowerInput.includes("results")) {
-        await handleCheckResults();
-      } else {
-        showBotResponse("I can help you analyze text, generate axes, run simulations, or check results. Try saying something like 'Analyze this text...' or 'Generate an axis about...'");
-      }
-    } catch (error) {
-      console.error("Error processing request:", error);
-      showBotResponse(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
+    // Use a smoother animation sequence with precise timing
+    setTimeout(() => {
       setIsSubmitting(false);
-    }
+      
+      // Add a small delay before starting the condensing animation
+      setTimeout(() => {
+        setIsFirstInputCondensed(true);
+        
+        // Stagger the second input appearance for a more natural flow
+        // Wait until the first input is mostly condensed
+        setTimeout(() => {
+          setIsSecondInputVisible(true);
+          
+          // Process the text through the API
+          handleSubmitCorpus(message);
+        }, 250); // Slightly shorter delay for a more connected feel
+      }, 50); // Very slight delay for visual separation
+    }, 2000);
   };
+
+  // Handler for the LensInput submission
+  const handleSendLens = (lens: string) => {
+    console.log("Lens submitted:", lens);
+    setSubmittedLens(lens);
+    
+    // Set loading only for lens submission
+    setIsLensLoading(true);
+    
+    setTimeout(() => {
+      setIsLensLoading(false);
+      setIsSecondInputCondensed(true);
+      
+      // Process the lens through the API
+      if (apiState.corpusId) {
+        handleGenerateAxis(lens);
+      }
+    }, 2000);
+  };
+
+  // Add this function to handle the Edit button click
+  const handleEditMessage = () => {
+    // Uncondense the first input
+    setIsFirstInputCondensed(false);
+    
+    // Completely reset the second input
+    setSubmittedLens('');
+    setIsSecondInputCondensed(false);
+    setIsSecondInputVisible(false);
+    
+    // The default placeholder text is automatically shown when the component
+    // reappears because we're setting submittedLens to an empty string
+    // and the LensInput component has the placeholder text built in
+  };
+
+  // Add this function to handle when the message is edited and resubmitted
+  const handleMessageEditSubmit = () => {
+    // This function is no longer needed since we're now handling the reset
+    // in the handleEditMessage function above
+    console.log("Message edited and resubmitted");
+  };
+
+  // Handler for editing the lens
+  const handleEditLens = () => {
+    setIsSecondInputCondensed(false);
+  };
+
+  // Add a function to listen to user messages
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    
+    // If we're waiting for simulation parameters and the user has entered something
+    if (apiState.currentStep === "simulation" && lastMessage && !lastMessage.startsWith("Now, enter")) {
+      // Try to extract a number from the message
+      const match = lastMessage.match(/\b(\d+)\b/);
+      if (match && match[1]) {
+        const agentCount = parseInt(match[1], 10);
+        if (!isNaN(agentCount) && agentCount > 0) {
+          handleRunSimulation(agentCount);
+        }
+      }
+    }
+    
+    // If we're waiting for results and we received a message about checking
+    if (apiState.currentStep === "results" && 
+        lastMessage && 
+        (lastMessage.toLowerCase().includes("check") || 
+         lastMessage.toLowerCase().includes("result"))) {
+      handleCheckResults();
+    }
+  }, [messages, apiState.currentStep, apiState.simulationId, handleRunSimulation, handleCheckResults]);
 
   return (
     <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-300 ease-in-out ${getBgColor()} overflow-hidden`}>
@@ -404,16 +507,16 @@ export default function Home() {
           }}
         />
         <Gravity
-          attractorStrength={0.0}
-          cursorStrength={0.00025}
-          cursorFieldRadius={100}
-          className="w-full h-full z-0 absolute"
-        >
+        attractorStrength={0.0}
+        cursorStrength={0.0004}
+        cursorFieldRadius={200}
+        className="w-full h-full z-0 absolute"
+      >
           {circles.map((circle, i) => (
             <MatterBody
               key={i}
               matterBodyOptions={{
-                friction: 0.2,
+                friction: 0.5,
                 frictionAir: 0.05,
                 restitution: 0.2
               }}
@@ -456,29 +559,46 @@ export default function Home() {
                     ${stage === 2 ? 'animate-[dropAccelerateThenExplode_0.5s_linear_forwards]' : ''}`}
       />
 
-      <div 
-        className={`w-full max-w-md px-4 z-20 
-                     transition-all duration-300 ease-in-out transform-gpu 
-                     ${startTransition ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
-      >
-        <TextInput 
-          onSubmit={handleSendMessage} 
-          className={`${!startTransition ? 'invisible' : ''}`} 
-          isLoading={isSubmitting}
-        />
-
-        {/* Bot responses */}
-        <div className="mt-4 space-y-2">
-          {messages.map((message, index) => (
-            <div 
-              key={index} 
-              className="bg-black bg-opacity-80 text-white p-3 rounded-lg max-w-[80%] ml-auto animation-pop-in"
-            >
-              {message}
-            </div>
-          ))}
+<div className="w-full max-w-md px-4 z-20 relative">
+        {/* First TextInput */}
+        <div 
+          className={`
+            transform-gpu transition-opacity duration-400 ease-out
+            ${startTransition ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}
+          `}
+        >
+          <TextInput 
+            onSubmit={handleSendMessage}
+            onEditSubmit={handleMessageEditSubmit}
+            isLoading={isSubmitting}
+            isCondensed={isFirstInputCondensed}
+            onEdit={handleEditMessage}
+            initialValue={submittedMessage}
+            onFileUpload={handleFileUpload}
+            className={`${!startTransition ? 'invisible' : ''}`} 
+          />
+        </div>
+        
+        {/* Second input (LensInput) */}
+        <div 
+          className={`
+            mt-5 transform-gpu transition-all duration-500 ease-out
+            ${isSecondInputVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-10 pointer-events-none'}
+          `}
+        >
+          <LensInput 
+            onSubmit={handleSendLens}
+            isLoading={isLensLoading}
+            isCondensed={isSecondInputCondensed}
+            onEdit={handleEditLens}
+            initialValue={submittedLens}
+          />
         </div>
       </div>
+      
+
     </div>
   );
 }
