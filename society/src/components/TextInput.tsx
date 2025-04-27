@@ -80,21 +80,27 @@ export const TextInput: React.FC<TextInputProps> = ({
   };
 
   return (
-    <div className={cn("flex flex-col items-center", className)}>
+    <div 
+      className={cn(
+        "relative flex flex-col items-start",
+        "bg-white/40 backdrop-filter backdrop-blur-md",
+        "py-10",
+        "border border-gray-200 rounded",
+        className
+      )}
+    >
       <label 
         htmlFor="message-input"
-        className="text-sm font-geist-mono uppercase
-                   bg-[#2b2b2b] text-white 
-                   px-4 py-1 rounded-full 
-                   border border-[#4d4d4d] 
-                   mb-5"
+        className="text-sm font-geist-mono uppercase 
+                   text-gray-700 dark:text-gray-300
+                   mb-5 px-5"
       >
         What is your message for Society?
       </label>
       <form
         onSubmit={handleSubmit}
         className={cn(
-          'flex items-end p-2 space-x-2 bg-white/40 border-[0.5px] border-gray-200 rounded w-[500px] backdrop-filter backdrop-blur-md'
+          'w-full max-w-[500px] px-5'
         )}
       >
         <textarea
@@ -106,8 +112,8 @@ export const TextInput: React.FC<TextInputProps> = ({
           placeholder={fileName ? `File selected: ${fileName}` : placeholder}
           rows={2}
           disabled={isLoading}
-          className="flex-grow resize-none bg-transparent p-2 outline-none placeholder-gray-400 text-gray-900 text-sm max-h-40 overflow-y-auto"
-          style={{ scrollbarWidth: 'none' }} // Hide scrollbar for Firefox
+          className="w-full resize-none bg-transparent rounded outline-none placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white text-sm max-h-40 mb-5 overflow-y-auto"
+          style={{ scrollbarWidth: 'none' }}
         />
         
         {/* Hidden file input */}

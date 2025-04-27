@@ -484,16 +484,16 @@ export default function Home() {
           }}
         />
         <Gravity
-          attractorStrength={0.0}
-          cursorStrength={0.00025}
-          cursorFieldRadius={100}
-          className="w-full h-full z-0 absolute"
-        >
+        attractorStrength={0.0}
+        cursorStrength={0.0004}
+        cursorFieldRadius={200}
+        className="w-full h-full z-0 absolute"
+      >
           {circles.map((circle, i) => (
             <MatterBody
               key={i}
               matterBodyOptions={{
-                friction: 0.2,
+                friction: 0.5,
                 frictionAir: 0.05,
                 restitution: 0.2
               }}
