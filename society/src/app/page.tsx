@@ -1,13 +1,22 @@
 "use client"
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 import Gravity, {
   MatterBody,
 } from "@/fancy/components/physics/cursor-attractor-and-gravity"
 import { TextInput } from '@/components/TextInput';
+import {
+  CorpusInput,
+  AxisInput,
+  SimulationInput,
+  SimulationResults,
+  submitCorpus,
+  generateAxis,
+  runSimulation,
+  getSimulationResults,
+  pollSimulationResults,
+} from "@/lib/api";
 
 type Circle = {
   size: number;
@@ -16,25 +25,21 @@ type Circle = {
   y: number;
 };
 
+type ApiState = {
+  corpusId?: string;
+  axisId?: string;
+  simulationId?: string;
+  status: "idle" | "loading" | "success" | "error";
+  result?: SimulationResults;
+  error?: string;
+};
+
 export default function Home() {
-  const words = [
-    "we",
-    "analyze",
-    { text: "millions", highlight: true },
-    { text: "of", highlight: true },
-    { text: "data", highlight: true },
-    { text: "points", highlight: true },
-    "per",
-    "second",
-    "to",
-    "provide",
-    "you",
-    "with",
-    "the",
-    "most",
-    "accurate",
-    "insights.",
-  ]
+  const [apiState, setApiState] = useState<ApiState>({
+    status: "idle",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [messages, setMessages] = useState<string[]>([]);
 
   const [vw, setVw] = useState<number | null>(null);
   const [circles, setCircles] = useState<Circle[]>([]);
@@ -120,10 +125,266 @@ export default function Home() {
     return finalColor;
   };
 
+  const showBotResponse = (content: string) => {
+    setMessages(prev => [...prev, content].slice(-3)); // Keep last 3 messages only
+  };
+
+  const handleSubmitCorpus = async (text: string) => {
+    showBotResponse("Processing your text...");
+    setApiState(prev => ({ ...prev, status: "loading" }));
+    
+    try {
+      if (text.length < 2) {
+        showBotResponse("Please provide some text content for analysis.");
+        setApiState(prev => ({ ...prev, status: "idle" }));
+        return;
+      }
+      
+      const corpusData: CorpusInput = {
+        corpus: text,
+        title: "User Submitted Text",
+      };
+      
+      const response = await submitCorpus(corpusData);
+      
+      setApiState(prev => ({
+        ...prev,
+        corpusId: response.corpus_id,
+        status: "success",
+      }));
+      
+      showBotResponse(
+        `Text processed successfully! Corpus ID: ${response.corpus_id}. You can now generate an axis for this text by saying "Generate an axis about [topic]".`
+      );
+    } catch (error) {
+      console.error("Error submitting corpus:", error);
+      showBotResponse(`Failed to process text: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
+    }
+  };
+
+  const handleGenerateAxis = async (text: string) => {
+    if (!apiState.corpusId) {
+      showBotResponse("Please submit a text for analysis first.");
+      return;
+    }
+    
+    showBotResponse("Generating axis...");
+    setApiState(prev => ({ ...prev, status: "loading" }));
+    
+    try {
+      const promptRegex = /generate an axis (about|for|on) (.+)/i;
+      const match = text.match(promptRegex);
+      const axisPrompt = match ? match[2].trim() : "general sentiment";
+      
+      console.log(`Sending axis request with prompt: "${axisPrompt}"`);
+      
+      const axisData: AxisInput = {
+        corpus_id: apiState.corpusId,
+        axis_prompt: axisPrompt,
+      };
+      
+      const response = await generateAxis(axisData);
+      
+      setApiState(prev => ({
+        ...prev,
+        axisId: response.axis_id,
+        status: "success",
+      }));
+      
+      let responseMessage = `Axis generated! ID: ${response.axis_id}`;
+      
+      if (response.axis_ends && response.axis_ends.length >= 2) {
+        responseMessage += ` Spectrum: "${response.axis_ends[0]}" to "${response.axis_ends[1]}"`;
+      }
+      
+      if (response.aggregated_score !== undefined) {
+        responseMessage += ` Score: ${response.aggregated_score.toFixed(2)}`;
+      }
+      
+      showBotResponse(responseMessage);
+      showBotResponse("You can now run a simulation by saying 'Run a simulation with [number] agents'.");
+    } catch (error) {
+      console.error("Error generating axis:", error);
+      showBotResponse(`Failed to generate axis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
+    }
+  };
+
+  const handleRunSimulation = async (text: string) => {
+    if (!apiState.corpusId || !apiState.axisId) {
+      showBotResponse("Please submit a text and generate an axis first.");
+      return;
+    }
+    
+    showBotResponse("Preparing to run simulation...");
+    setApiState(prev => ({ ...prev, status: "loading" }));
+    
+    try {
+      const agentCountRegex = /run a simulation with (\d+) agents/i;
+      const match = text.match(agentCountRegex);
+      const agentCount = match ? parseInt(match[1]) : 50;
+      
+      const simulationData: SimulationInput = {
+        corpus_id: apiState.corpusId,
+        axis_id: apiState.axisId,
+        agent_count: agentCount,
+        demographics: {
+          age_groups: ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"],
+          political_leanings: ["liberal", "moderate", "conservative"]
+        }
+      };
+      
+      const response = await runSimulation(simulationData);
+      
+      setApiState(prev => ({
+        ...prev,
+        simulationId: response.simulation_id,
+        status: "loading",
+      }));
+      
+      showBotResponse(`Simulation started! ID: ${response.simulation_id}`);
+      showBotResponse("Polling for results. This may take a few minutes...");
+      
+      pollForResults(response.simulation_id);
+    } catch (error) {
+      console.error("Error running simulation:", error);
+      showBotResponse(`Failed to run simulation: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
+    }
+  };
+
+  const handleCheckResults = async () => {
+    if (!apiState.simulationId) {
+      showBotResponse("No simulation has been run yet. Please run a simulation first.");
+      return;
+    }
+    
+    showBotResponse("Checking simulation results...");
+    setApiState(prev => ({ ...prev, status: "loading" }));
+    
+    try {
+      const results = await getSimulationResults(apiState.simulationId);
+      
+      if (results.status === "processing") {
+        setApiState(prev => ({
+          ...prev,
+          status: "loading",
+        }));
+        
+        showBotResponse(`Simulation is still processing. Current progress: ${results.percent_complete || 0}%`);
+        
+        pollForResults(apiState.simulationId);
+      } else if (results.status === "completed") {
+        setApiState(prev => ({
+          ...prev,
+          status: "success",
+          result: results,
+        }));
+        
+        formatAndDisplayResults(results);
+      } else {
+        showBotResponse(`Simulation encountered an error.`);
+        setApiState(prev => ({ ...prev, status: "error", error: "Simulation failed" }));
+      }
+    } catch (error) {
+      console.error("Error checking results:", error);
+      showBotResponse(`Failed to check results: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
+    }
+  };
+
+  const pollForResults = (simulationId: string) => {
+    pollSimulationResults(
+      simulationId,
+      (progress) => {
+        if (progress.status === "processing") {
+          showBotResponse(`Simulation in progress... ${progress.percent_complete || 0}% complete`);
+        }
+      }
+    )
+      .then(() => {
+        getSimulationResults(simulationId)
+          .then((results) => {
+            setApiState(prev => ({
+              ...prev,
+              status: "success",
+              result: results,
+            }));
+            
+            formatAndDisplayResults(results);
+          })
+          .catch((error) => {
+            console.error("Error getting final results:", error);
+            showBotResponse(`Failed to get final results: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
+          });
+      })
+      .catch((error) => {
+        console.error("Error polling for results:", error);
+        showBotResponse(`Failed to poll for results: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
+      });
+  };
+
+  const formatAndDisplayResults = (results: SimulationResults) => {
+    const { global_results, demographic_breakdowns, key_reactions } = results;
+    
+    if (global_results) {
+      showBotResponse(`Overall Score: ${global_results.overall_score.toFixed(2)} (Confidence: ${global_results.confidence.toFixed(2)})`);
+      showBotResponse(`Interpretation: ${global_results.interpretation}`);
+    }
+    
+    if (key_reactions && key_reactions.length > 0) {
+      showBotResponse(`Key Reaction: ${key_reactions[0]}`);
+    }
+    
+    if (demographic_breakdowns) {
+      if (demographic_breakdowns.by_age) {
+        const ageMessage = "Age breakdown: " + 
+          Object.entries(demographic_breakdowns.by_age)
+            .map(([age, score]) => `${age}: ${score.toFixed(2)}`)
+            .join(", ");
+        showBotResponse(ageMessage);
+      }
+      
+      if (demographic_breakdowns.by_political_leaning) {
+        const politicalMessage = "Political breakdown: " + 
+          Object.entries(demographic_breakdowns.by_political_leaning)
+            .map(([leaning, score]) => `${leaning}: ${score.toFixed(2)}`)
+            .join(", ");
+        showBotResponse(politicalMessage);
+      }
+    }
+  };
+
   // Handler for the TextInput submission
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim() || isSubmitting) return;
+    
+    setIsSubmitting(true);
     console.log("Message submitted:", message);
-    // TODO: Add logic to actually send/process the message
+    
+    try {
+      const lowerInput = message.toLowerCase();
+      
+      if (lowerInput.includes("analyze") || lowerInput.includes("text") || lowerInput.includes("corpus")) {
+        await handleSubmitCorpus(message);
+      } else if (lowerInput.includes("generate") && lowerInput.includes("axis")) {
+        await handleGenerateAxis(message);
+      } else if (lowerInput.includes("run") && lowerInput.includes("simulation")) {
+        await handleRunSimulation(message);
+      } else if (lowerInput.includes("check") && lowerInput.includes("results")) {
+        await handleCheckResults();
+      } else {
+        showBotResponse("I can help you analyze text, generate axes, run simulations, or check results. Try saying something like 'Analyze this text...' or 'Generate an axis about...'");
+      }
+    } catch (error) {
+      console.error("Error processing request:", error);
+      showBotResponse(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -185,19 +446,6 @@ export default function Home() {
             Society
           </span>
         </h1>
-        
-        {/* Chat button added here */}
-        <div className="mt-12 opacity-0 animate-[fadeIn_1s_ease-in_2s_forwards]">
-          <Link 
-            href="/chat" 
-            className="bg-blue-500 hover:bg-blue-600 text-white rounded-full py-3 px-6 shadow-lg flex items-center gap-2 transition-all"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-            Try Chat Interface
-          </Link>
-        </div>
       </div>
 
       <div 
@@ -214,7 +462,20 @@ export default function Home() {
         <TextInput 
           onSubmit={handleSendMessage} 
           className={`${!startTransition ? 'invisible' : ''}`} 
+          isLoading={isSubmitting}
         />
+
+        {/* Bot responses */}
+        <div className="mt-4 space-y-2">
+          {messages.map((message, index) => (
+            <div 
+              key={index} 
+              className="bg-black bg-opacity-80 text-white p-3 rounded-lg max-w-[80%] ml-auto animation-pop-in"
+            >
+              {message}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
