@@ -1,13 +1,10 @@
 'use client';
 
-import React, { useState, useRef, useEffect, FormEvent, KeyboardEvent, ChangeEvent } from 'react';
+import React, { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
 import { cn } from '@/lib/utils'; // Assuming you have a utility for classnames
-import { MediaType } from '@/lib/api';
 
-interface TextInputProps {
+interface LensInputProps {
   onSubmit: (value: string) => void;
-  onFileUpload?: (file: File, mediaType: MediaType) => void;
-  placeholder?: string;
   isLoading?: boolean;
   className?: string;
   isCondensed?: boolean;
@@ -15,10 +12,8 @@ interface TextInputProps {
   initialValue?: string;
 }
 
-export const TextInput: React.FC<TextInputProps> = ({
+export const LensInput: React.FC<LensInputProps> = ({
   onSubmit,
-  onFileUpload,
-  placeholder = 'Send a message...',
   isLoading = false,
   className,
   isCondensed = false,
@@ -26,9 +21,7 @@ export const TextInput: React.FC<TextInputProps> = ({
   initialValue = '',
 }) => {
   const [value, setValue] = useState(initialValue);
-  const [fileName, setFileName] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const prevIsLoadingRef = useRef<boolean | undefined>(undefined);
 
   // --- Loading State ---
@@ -119,32 +112,6 @@ export const TextInput: React.FC<TextInputProps> = ({
     }
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (!onFileUpload || !e.target.files || e.target.files.length === 0) return;
-    
-    const file = e.target.files[0];
-    setFileName(file.name);
-    
-    // Determine media type based on file MIME type
-    let mediaType: MediaType;
-    if (file.type.startsWith('video/')) {
-      mediaType = MediaType.VIDEO;
-    } else if (file.type.startsWith('audio/')) {
-      mediaType = MediaType.AUDIO;
-    } else if (file.type.startsWith('image/')) {
-      mediaType = MediaType.IMAGE;
-    } else {
-      alert('Unsupported file type. Please upload a video, audio, or image file.');
-      return;
-    }
-    
-    onFileUpload(file, mediaType);
-  };
-
-  const handleAttachClick = () => {
-    fileInputRef.current?.click();
-  };
-
   return (
     <div 
     className={cn(
@@ -165,7 +132,7 @@ export const TextInput: React.FC<TextInputProps> = ({
       "w-full transition-all duration-400 ease-out",
     )}>
       <label 
-        htmlFor="message-input"
+        htmlFor="lens-input"
         className={cn(
           "text-sm font-geist-mono uppercase",
           "text-gray-700 dark:text-gray-300",
@@ -173,7 +140,7 @@ export const TextInput: React.FC<TextInputProps> = ({
           isCondensed ? "mb-0" : "mb-2"
         )}
       >
-        {isCondensed ? "Your message:" : "What is your message for Society?"}
+        {isCondensed ? "Your message:" : "Set the lens for reaction."}
       </label>
       
       {/* Show textarea only when not condensed */}
@@ -185,12 +152,12 @@ export const TextInput: React.FC<TextInputProps> = ({
           )}
         >
           <textarea
-            id="message-input"
+            id="lens-input"
             ref={textareaRef}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder="e.g. Tolerance/Intolerance, Clarity/Confusion, etc."
             rows={2}
             disabled={isLoading}
             className="w-full resize-none bg-transparent rounded outline-none placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white text-sm max-h-40 mb-5 overflow-y-auto"
