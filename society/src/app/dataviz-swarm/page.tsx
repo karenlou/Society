@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 // Simulation data types from mock data
-type ChunkScore = {
-  chunk_id: number;
-  score: number;
-};
+// type ChunkScore = {
+//   chunk_id: number;
+//   score: number;
+// };
 
-type ChunkAgentScores = {
-  agent_id: string;
-  scores: number[];
-};
+// type ChunkAgentScores = {
+//   agent_id: string;
+//   scores: number[];
+// };
 
 // Sample data for 20 agents
 const mockAgentData = {
@@ -111,10 +112,22 @@ const getRandomHSLColor = (): HSLColor => ({
 });
 
 export default function DataVizSwarmPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const corpusId = searchParams.get('corpus_id');
+  const axisId = searchParams.get('axis_id');
+  
   const [agents, setAgents] = useState<Agent[]>([]);
   const [progress, setProgress] = useState(0);
   const chunkCount = mockAgentData.chunk_count;
   const animationFrameRef = useRef<number | null>(null);
+
+  // Log the received parameters
+  useEffect(() => {
+    console.log(`Received parameters: corpus_id=${corpusId}, axis_id=${axisId}`);
+    // In the future, you can use these IDs to fetch real data from the API
+    // For now, we'll continue using the mock data
+  }, [corpusId, axisId]);
 
   // 1. Initialize agents (stacking determines baseY, includes variation)
   useEffect(() => {
@@ -236,7 +249,7 @@ export default function DataVizSwarmPage() {
 
     let isActive = true; // Flag to control animation loop
 
-    const animate = (timestamp: number) => {
+    const animate = () => {
       if (!isActive) return; // Stop loop if flag is false
 
       const currentProgressRatio = chunkCount > 0 ? progress / chunkCount : 0;
@@ -264,8 +277,8 @@ export default function DataVizSwarmPage() {
               // Calculate avoidance based on *previous* frame positions (prevAgents)
               // Avoidance is calculated relative to the agent's position *before* drift is applied for simplicity this frame
               // Or, more accurately, calculate drift first, then calculate avoidance based on intermediate drifted positions. Let's do the latter.
-              let intermediateX = nextX;
-              let intermediateY = nextY;
+              const intermediateX = nextX;
+              const intermediateY = nextY;
 
               let avoidanceDX = 0;
               let avoidanceDY = 0;
@@ -329,16 +342,38 @@ export default function DataVizSwarmPage() {
     };
    }, [progress, chunkCount]); // Dependencies remain the same
 
+  // Function to handle going back to home page
+  const handleBackToHome = () => {
+    router.push('/');
+  };
 
   // 4. Render the page (Light Theme, No CSS position transition)
   return (
     <div className="min-h-screen flex flex-col items-center p-0 m-0 bg-gradient-to-br from-gray-50 to-blue-50 overflow-hidden">
-      <h1 className="text-4xl font-bold mb-4 text-center text-gray-700 mt-8">
-        Agent Sentiment Swarm (Optimized)
-      </h1>
+      <div className="w-full flex justify-between items-center px-8 py-4">
+        <button 
+          onClick={handleBackToHome}
+          className="px-4 py-2 bg-gray-800 text-white text-sm rounded-md hover:bg-gray-900 transition-colors"
+        >
+          ← Back to Home
+        </button>
+        <h1 className="text-4xl font-bold text-gray-700">
+          Agent Sentiment Swarm
+        </h1>
+        <div className="w-[120px]"></div> {/* Spacer for alignment */}
+      </div>
+
       <p className="text-gray-500 text-lg mb-8 text-center">
         Slide to observe agent sentiment shift across chunks (0 to {chunkCount})
       </p>
+      
+      {/* Display corpus and axis IDs if available */}
+      {(corpusId || axisId) && (
+        <div className="mb-4 text-sm text-gray-500">
+          {corpusId && <div>Corpus ID: {corpusId}</div>}
+          {axisId && <div>Axis ID: {axisId}</div>}
+        </div>
+      )}
 
       <div className="relative w-full h-[600px] bg-transparent border-t border-b border-gray-200">
         <div className="absolute top-1/2 left-0 w-full h-[1px] bg-gray-300" />

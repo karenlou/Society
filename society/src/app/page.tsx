@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import Gravity, {
   MatterBody,
@@ -36,10 +37,11 @@ type ApiState = {
   status: "idle" | "loading" | "success" | "error";
   result?: SimulationResults;
   error?: string;
-  currentStep: "corpus" | "axis" | "simulation" | "results";
+  currentStep: "corpus" | "axis" | "simulation" | "results" | "dataviz";
 };
 
 export default function Home() {
+  const router = useRouter();
   const [apiState, setApiState] = useState<ApiState>({
     status: "idle",
     currentStep: "corpus"
@@ -216,7 +218,7 @@ export default function Home() {
         ...prev,
         axisId: response.axis_id,
         status: "success",
-        currentStep: "simulation"
+        currentStep: "dataviz"
       }));
       
       let responseMessage = `Axis generated! `;
@@ -230,7 +232,13 @@ export default function Home() {
       }
       
       showBotResponse(responseMessage);
-      showBotResponse("Now, enter how many simulation agents you'd like to run (e.g., '50 agents' or just a number).");
+      showBotResponse("Taking you to data visualizations...");
+      
+      // Add a delay to allow animations to finish before redirecting to dataviz-swarm
+      setTimeout(() => {
+        // Navigate to the dataviz-swarm page with the corpus_id and axis_id as query parameters
+        router.push(`/dataviz-swarm?corpus_id=${apiState.corpusId}&axis_id=${response.axis_id}`);
+      }, 2000);
     } catch (error) {
       console.error("Error generating axis:", error);
       showBotResponse(`Failed to generate axis: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -495,6 +503,7 @@ export default function Home() {
   return (
     <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-300 ease-in-out ${getBgColor()} overflow-hidden`}>
       
+      {/* Background elements that should always be present */}
       <div className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${startTransition ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <div
           className="absolute inset-0 z-0 opacity-30"
@@ -507,11 +516,11 @@ export default function Home() {
           }}
         />
         <Gravity
-        attractorStrength={0.0}
-        cursorStrength={0.0004}
-        cursorFieldRadius={200}
-        className="w-full h-full z-0 absolute"
-      >
+          attractorStrength={0.0}
+          cursorStrength={0.0004}
+          cursorFieldRadius={200}
+          className="w-full h-full z-0 absolute"
+        >
           {circles.map((circle, i) => (
             <MatterBody
               key={i}
@@ -536,69 +545,70 @@ export default function Home() {
           ))}
         </Gravity>
       </div>
-
-      <div className={`flex flex-col items-center justify-center z-10 transition-opacity duration-1000 ease-in-out ${stage >= 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <h1 
-          className={`text-3xl text-center leading-none 
-                     transition-all duration-300 ease-in-out transform-gpu 
-                     ${getTextColor('text-gray-900')} 
-                     ${startTransition ? 'scale-50' : 'scale-100'}`}
-        >
-          <span className={`block z-10 sm:text-sm text-black px-4 font-geist-mono transition-colors duration-300 ease-in-out ${getTextColor('text-black')} animate-[fadeIn_1s_ease-in_forwards]`}>
-            WELCOME TO
-          </span>
-          <span className={`block text-3xl font-normal transition-colors duration-300 ease-in-out ${getTextColor('text-gray-900')} ${showSociety ? 'animate-[fadeIn_1s_ease-in_forwards]' : 'opacity-0'}`}>
-            Society
-          </span>
-        </h1>
-      </div>
-
-      <div 
-        className={`absolute w-6 h-6 bg-white rounded-full z-5 left-1/2 -translate-x-1/2 top-1/2 transition-opacity duration-1000 ease-in-out
-                    ${showExplodingCircle ? 'opacity-100 transform translate-y-8' : 'opacity-0 pointer-events-none transform translate-y-8'}
-                    ${stage === 2 ? 'animate-[dropAccelerateThenExplode_0.5s_linear_forwards]' : ''}`}
-      />
-
-<div className="w-full max-w-md px-4 z-20 relative">
-        {/* First TextInput */}
-        <div 
-          className={`
-            transform-gpu transition-opacity duration-400 ease-out
-            ${startTransition ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}
-          `}
-        >
-          <TextInput 
-            onSubmit={handleSendMessage}
-            onEditSubmit={handleMessageEditSubmit}
-            isLoading={isSubmitting}
-            isCondensed={isFirstInputCondensed}
-            onEdit={handleEditMessage}
-            initialValue={submittedMessage}
-            onFileUpload={handleFileUpload}
-            className={`${!startTransition ? 'invisible' : ''}`} 
-          />
-        </div>
-        
-        {/* Second input (LensInput) */}
-        <div 
-          className={`
-            mt-5 transform-gpu transition-all duration-500 ease-out
-            ${isSecondInputVisible 
-              ? 'opacity-100 translate-y-0' 
-              : 'opacity-0 translate-y-10 pointer-events-none'}
-          `}
-        >
-          <LensInput 
-            onSubmit={handleSendLens}
-            isLoading={isLensLoading}
-            isCondensed={isSecondInputCondensed}
-            onEdit={handleEditLens}
-            initialValue={submittedLens}
-          />
-        </div>
-      </div>
       
+      {/* Main content with conditional opacity */}
+      <div className={`flex flex-col items-center justify-center w-full h-full`}>
+        <div className={`flex flex-col items-center justify-center z-10 transition-opacity duration-1000 ease-in-out ${stage >= 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <h1 
+            className={`text-3xl text-center leading-none 
+                      transition-all duration-300 ease-in-out transform-gpu 
+                      ${getTextColor('text-gray-900')} 
+                      ${startTransition ? 'scale-50' : 'scale-100'}`}
+          >
+            <span className={`block z-10 sm:text-sm text-black px-4 font-geist-mono transition-colors duration-300 ease-in-out ${getTextColor('text-black')} animate-[fadeIn_1s_ease-in_forwards]`}>
+              WELCOME TO
+            </span>
+            <span className={`block text-3xl font-normal transition-colors duration-300 ease-in-out ${getTextColor('text-gray-900')} ${showSociety ? 'animate-[fadeIn_1s_ease-in_forwards]' : 'opacity-0'}`}>
+              Society
+            </span>
+          </h1>
+        </div>
 
+        <div 
+          className={`absolute w-6 h-6 bg-white rounded-full z-5 left-1/2 -translate-x-1/2 top-1/2 transition-opacity duration-1000 ease-in-out
+                      ${showExplodingCircle ? 'opacity-100 transform translate-y-8' : 'opacity-0 pointer-events-none transform translate-y-8'}
+                      ${stage === 2 ? 'animate-[dropAccelerateThenExplode_0.5s_linear_forwards]' : ''}`}
+        />
+
+        <div className="w-full max-w-md px-4 z-20 relative">
+          {/* First TextInput */}
+          <div 
+            className={`
+              transform-gpu transition-opacity duration-400 ease-out
+              ${startTransition ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}
+            `}
+          >
+            <TextInput 
+              onSubmit={handleSendMessage}
+              onEditSubmit={handleMessageEditSubmit}
+              isLoading={isSubmitting}
+              isCondensed={isFirstInputCondensed}
+              onEdit={handleEditMessage}
+              initialValue={submittedMessage}
+              onFileUpload={handleFileUpload}
+              className={`${!startTransition ? 'invisible' : ''}`} 
+            />
+          </div>
+          
+          {/* Second input (LensInput) */}
+          <div 
+            className={`
+              mt-5 transform-gpu transition-all duration-500 ease-out
+              ${isSecondInputVisible 
+                ? 'opacity-100 translate-y-0' 
+                : 'opacity-0 translate-y-10 pointer-events-none'}
+            `}
+          >
+            <LensInput 
+              onSubmit={handleSendLens}
+              isLoading={isLensLoading}
+              isCondensed={isSecondInputCondensed}
+              onEdit={handleEditLens}
+              initialValue={submittedLens}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
