@@ -24,6 +24,8 @@ import Matter, {
   World,
   Body,
 } from "matter-js"
+// Using dynamic import for poly-decomp to avoid ES Module issues
+import * as polyDecomp from "poly-decomp"
 
 import { cn } from "@/lib/utils"
 import { useMousePositionRef } from "@/hooks/use-mouse-position-ref"
@@ -246,7 +248,8 @@ const Gravity = forwardRef<GravityRef, GravityProps>(
       const height = canvas.current.offsetHeight
       const width = canvas.current.offsetWidth
 
-      Common.setDecomp(require("poly-decomp"))
+      // Set poly-decomp for Matter.js
+      Common.setDecomp(polyDecomp)
 
       // Remove default gravity
       engine.current.gravity.x = 0
@@ -266,7 +269,7 @@ const Gravity = forwardRef<GravityRef, GravityProps>(
       // Add walls
       const walls = [
         // Floor
-        Bodies.rectangle(width / 2, height + 10, width, 20, {
+        Bodies.rectangle(width / 2, height, width, 2, {
           isStatic: true,
           friction: 1,
           render: {
@@ -275,7 +278,7 @@ const Gravity = forwardRef<GravityRef, GravityProps>(
         }),
 
         // Right wall
-        Bodies.rectangle(width + 10, height / 2, 20, height, {
+        Bodies.rectangle(width, height / 2, 2, height, {
           isStatic: true,
           friction: 1,
           render: {
@@ -284,7 +287,7 @@ const Gravity = forwardRef<GravityRef, GravityProps>(
         }),
 
         // Left wall
-        Bodies.rectangle(-10, height / 2, 20, height, {
+        Bodies.rectangle(0, height / 2, 2, height, {
           isStatic: true,
           friction: 1,
           render: {
@@ -294,7 +297,7 @@ const Gravity = forwardRef<GravityRef, GravityProps>(
       ]
 
       const topWall = addTopWall
-        ? Bodies.rectangle(width / 2, -10, width, 20, {
+        ? Bodies.rectangle(width / 2, 0, width, 2, {
             isStatic: true,
             friction: 1,
             render: {
