@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     
     try {
       // Try connecting to ngrok backend
-      const response = await fetch("https://db30-164-67-70-232.ngrok-free.app", {
+      const response = await fetch("https://lahacks-production.up.railway.app", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,6 +1,6 @@
 // API Base URL - Change this when your ngrok URL changes
 export const API_CONFIG = {
-  baseUrl: "https://db30-164-67-70-232.ngrok-free.app",
+  baseUrl: "https://lahacks-production.up.railway.app",
   apiPath: "/api"
 };
 
