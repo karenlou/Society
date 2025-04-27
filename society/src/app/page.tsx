@@ -36,8 +36,8 @@ export default function Home() {
 
   const [vw, setVw] = useState<number | null>(null);
   const [circles, setCircles] = useState<Circle[]>([]);
+  const [stage, setStage] = useState(0);
 
-  // ➊ Get viewport width once (or on resize if you like)
   useEffect(() => {
     const handleResize = () => setVw(window.innerWidth);
     handleResize();                  // set initial value
@@ -70,50 +70,82 @@ export default function Home() {
     setCircles(arr);
   }, [vw]);
 
+  useEffect(() => {
+    const timer1 = setTimeout(() => {
+      setStage(1);
+    }, 1000);
+
+    const timer2 = setTimeout(() => {
+      setStage(2);
+    }, 2500);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, []);
+
+  const getBgColor = () => {
+    if (stage < 2) return 'bg-black';
+    return 'bg-white';
+  };
+
+  const getTextColor = (finalColor: string) => {
+    if (stage < 2) return 'text-stone-200';
+    return finalColor;
+  };
+
   return (
-    <div className="w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center bg-white">
-      {/* Background image layer */}
-      <div
-        className="absolute inset-0 z-0 opacity-40"
-        style={{
-          backgroundImage: "url('/CanvasBg.jpg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          pointerEvents: "none", // so it doesn't block interaction
-        }}
-      />
-      <Gravity
-        attractorStrength={0.0}
-        cursorStrength={0.0004}
-        cursorFieldRadius={200}
-        className="w-full h-full z-0 absolute"
-      > 
-      {circles.map((circle, i) => (
-        <MatterBody
-          key={i}
-          matterBodyOptions={{ friction: 0.5, restitution: 0.2 }}
-          x={`${circle.x}%`}
-          y={`${circle.y}%`}
+    <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-1000 ease-in-out ${getBgColor()}`}>
+      
+      <div className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${stage === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        <div
+          className="absolute inset-0 z-0 opacity-30"
+          style={{
+            backgroundImage: "url('/CanvasBg2.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            pointerEvents: "none",
+          }}
+        />
+        <Gravity
+          attractorStrength={0.0}
+          cursorStrength={0.00025}
+          cursorFieldRadius={100}
+          className="w-full h-full z-0 absolute"
         >
-          <div
-            className="rounded-full"
-            style={{
-              width: `${circle.size}px`,
-              height: `${circle.size}px`,
-              backgroundColor: circle.color,
-              opacity: 0.9,
-            }}
-          />
-        </MatterBody>
-      ))}
-      </Gravity>
-      <div className="flex flex-col items-center justify-center z-10">
-        <h1 className="text-3xl text-gray-900 text-center">
-          <span className="block z-10 sm:text-sm md:text-lg text-black px-4 py-2 font-geist-mono opacity-0 animate-[fadeIn_1s_ease-in_forwards]">
+          {circles.map((circle, i) => (
+            <MatterBody
+              key={i}
+              matterBodyOptions={{
+                friction: 0.2,
+                frictionAir: 0.05,
+                restitution: 0.2
+              }}
+              x={`${circle.x}%`}
+              y={`${circle.y}%`}
+            >
+              <div
+                className="rounded-full"
+                style={{
+                  width: `${circle.size}px`,
+                  height: `${circle.size}px`,
+                  backgroundColor: circle.color,
+                  opacity: 0.7,
+                }}
+              />
+            </MatterBody>
+          ))}
+        </Gravity>
+      </div>
+
+      <div className={`flex flex-col items-center justify-center z-10 transition-opacity duration-1000 ease-in-out ${stage >= 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        <h1 className={`text-3xl text-center leading-none transition-colors duration-1000 ease-in-out ${getTextColor('text-gray-900')}`}>
+          <span className={`block z-10 sm:text-sm text-black px-4 font-geist-mono transition-colors duration-1000 ease-in-out ${getTextColor('text-black')} animate-[fadeIn_1s_ease-in_forwards]`}>
             WELCOME TO
           </span>
-          <span className="block opacity-0 animate-[fadeIn_1s_ease-in_1s_forwards] text-3xl font-normal mt-2">
+          <span className={`block text-3xl font-normal transition-colors duration-1000 ease-in-out ${getTextColor('text-gray-900')} animate-[fadeIn_1s_ease-in_1s_forwards]`}>
             Society
           </span>
         </h1>
