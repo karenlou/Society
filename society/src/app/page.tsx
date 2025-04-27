@@ -171,7 +171,12 @@ export default function Home() {
       </div>
 
       <div className={`flex flex-col items-center justify-center z-10 transition-opacity duration-1000 ease-in-out ${stage >= 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <h1 className={`text-3xl text-center leading-none transition-colors duration-300 ease-in-out ${getTextColor('text-gray-900')}`}>
+        <h1 
+          className={`text-3xl text-center leading-none 
+                     transition-all duration-300 ease-in-out transform-gpu 
+                     ${getTextColor('text-gray-900')} 
+                     ${startTransition ? 'scale-50' : 'scale-100'}`}
+        >
           <span className={`block z-10 sm:text-sm text-black px-4 font-geist-mono transition-colors duration-300 ease-in-out ${getTextColor('text-black')} animate-[fadeIn_1s_ease-in_forwards]`}>
             WELCOME TO
           </span>
@@ -179,14 +184,6 @@ export default function Home() {
             Society
           </span>
         </h1>
-
-        <div className={`w-full max-w-2xl px-4 mt-5 transition-opacity duration-300 ease-in-out ${startTransition ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-          <TextInput 
-            onSubmit={handleSendMessage} 
-            className={`${!startTransition ? 'invisible' : ''}`}
-          />
-        </div>
-
       </div>
 
       <div 
@@ -194,6 +191,17 @@ export default function Home() {
                     ${showExplodingCircle ? 'opacity-100 transform translate-y-8' : 'opacity-0 pointer-events-none transform translate-y-8'}
                     ${stage === 2 ? 'animate-[dropAccelerateThenExplode_0.5s_linear_forwards]' : ''}`}
       />
+
+      <div 
+        className={`w-full max-w-md px-4 z-20 
+                     transition-all duration-300 ease-in-out transform-gpu 
+                     ${startTransition ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+      >
+        <TextInput 
+          onSubmit={handleSendMessage} 
+          className={`${!startTransition ? 'invisible' : ''}`} 
+        />
+      </div>
     </div>
   );
 }
