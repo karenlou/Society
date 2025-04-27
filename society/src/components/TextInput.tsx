@@ -10,24 +10,6 @@ interface TextInputProps {
   className?: string;
 }
 
-// Simple Paper Plane icon component
-const SendIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <path d="M12 22V2L5 9l-3 3 10 10 3-3 7-7-7-7z" />
-  </svg>
-);
-
 export const TextInput: React.FC<TextInputProps> = ({
   onSubmit,
   placeholder = 'Send a message...',
@@ -67,43 +49,54 @@ export const TextInput: React.FC<TextInputProps> = ({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={cn(
-        'flex items-end p-2 space-x-2 bg-white border-[0.5px] border-gray-200 rounded-lg w-[60px]',
-        className
-      )}
-    >
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        rows={2}
-        disabled={isLoading}
-        className="flex-grow resize-none bg-transparent p-2 outline-none placeholder-gray-400 text-gray-900 text-sm max-h-40 overflow-y-auto"
-        style={{ scrollbarWidth: 'none' }} // Hide scrollbar for Firefox
-      />
-      <button
-        type="submit"
-        disabled={isLoading || !value.trim()} // Disable if loading or empty
+    <div className={cn("flex flex-col items-center", className)}>
+      <label 
+        htmlFor="message-input"
+        className="text-sm font-geist-mono uppercase
+                   bg-[#2b2b2b] text-white 
+                   px-4 py-1 rounded-full 
+                   border border-[#4d4d4d] 
+                   mb-5"
+      >
+        What is your message for Society?
+      </label>
+      <form
+        onSubmit={handleSubmit}
         className={cn(
-          'p-2 rounded-md transition-colors',
-          isLoading
-            ? 'text-gray-400 cursor-not-allowed'
-            : value.trim()
-            ? 'bg-black text-white hover:bg-gray-800'
-            : 'text-gray-400 cursor-not-allowed'
+          'flex items-end p-2 space-x-2 bg-white/40 border-[0.5px] border-gray-200 rounded w-[500px] backdrop-filter backdrop-blur-md'
         )}
       >
-        {/* Basic Send Icon or Loading indicator */} 
-        {isLoading ? (
-           <div className="w-5 h-5 border-2 border-t-transparent border-gray-400 rounded-full animate-spin"></div>
-        ) : (
-          <SendIcon className="w-5 h-5" />
-        )}
-      </button>
-    </form>
+        <textarea
+          id="message-input"
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          rows={2}
+          disabled={isLoading}
+          className="flex-grow resize-none bg-transparent p-2 outline-none placeholder-gray-400 text-gray-900 text-sm max-h-40 overflow-y-auto"
+          style={{ scrollbarWidth: 'none' }} // Hide scrollbar for Firefox
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !value.trim()}
+          className={cn(
+            'px-4 py-1 rounded-md transition-colors text-sm font-medium',
+            isLoading
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : value.trim()
+              ? 'bg-black text-white hover:bg-gray-800'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          )}
+        >
+          {isLoading ? (
+             'Wait...'
+          ) : (
+            'Enter'
+          )}
+        </button>
+      </form>
+    </div>
   );
 };
