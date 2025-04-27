@@ -12,13 +12,9 @@ import { TextInput } from '@/components/TextInput';
 import {
   CorpusInput,
   AxisInput,
-  SimulationInput,
   SimulationResults,
   submitCorpus,
   generateAxis,
-  runSimulation,
-  getSimulationResults,
-  pollSimulationResults,
   MediaType,
   generateMultimediaAxis,
 } from "@/lib/api";
@@ -246,150 +242,6 @@ export default function Home() {
     }
   };
 
-  const handleRunSimulation = async (agentCount: number) => {
-    if (!apiState.corpusId || !apiState.axisId) {
-      showBotResponse("Please submit a text and generate an axis first.");
-      setApiState(prev => ({ ...prev, currentStep: "corpus" }));
-      return;
-    }
-    
-    showBotResponse(`Preparing to run simulation with ${agentCount} agents...`);
-    setApiState(prev => ({ ...prev, status: "loading" }));
-    
-    try {
-      const simulationData: SimulationInput = {
-        corpus_id: apiState.corpusId,
-        axis_id: apiState.axisId,
-        agent_count: agentCount,
-        demographics: {
-          age_groups: ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"],
-          political_leanings: ["liberal", "moderate", "conservative"]
-        }
-      };
-      
-      const response = await runSimulation(simulationData);
-      
-      setApiState(prev => ({
-        ...prev,
-        simulationId: response.simulation_id,
-        status: "loading",
-        currentStep: "results"
-      }));
-      
-      showBotResponse(`Simulation started! ID: ${response.simulation_id}`);
-      showBotResponse("Polling for results. This may take a few minutes...");
-      
-      pollForResults(response.simulation_id);
-    } catch (error) {
-      console.error("Error running simulation:", error);
-      showBotResponse(`Failed to run simulation: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
-    }
-  };
-
-  const handleCheckResults = async () => {
-    if (!apiState.simulationId) {
-      showBotResponse("No simulation has been run yet. Please run a simulation first.");
-      return;
-    }
-    
-    showBotResponse("Checking simulation results...");
-    setApiState(prev => ({ ...prev, status: "loading" }));
-    
-    try {
-      const results = await getSimulationResults(apiState.simulationId);
-      
-      if (results.status === "processing") {
-        setApiState(prev => ({
-          ...prev,
-          status: "loading",
-        }));
-        
-        showBotResponse(`Simulation is still processing. Current progress: ${results.percent_complete || 0}%`);
-        
-        pollForResults(apiState.simulationId);
-      } else if (results.status === "completed") {
-        setApiState(prev => ({
-          ...prev,
-          status: "success",
-          result: results,
-        }));
-        
-        formatAndDisplayResults(results);
-      } else {
-        showBotResponse(`Simulation encountered an error.`);
-        setApiState(prev => ({ ...prev, status: "error", error: "Simulation failed" }));
-      }
-    } catch (error) {
-      console.error("Error checking results:", error);
-      showBotResponse(`Failed to check results: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
-    }
-  };
-
-  const pollForResults = (simulationId: string) => {
-    pollSimulationResults(
-      simulationId,
-      (progress) => {
-        if (progress.status === "processing") {
-          showBotResponse(`Simulation in progress... ${progress.percent_complete || 0}% complete`);
-        }
-      }
-    )
-      .then(() => {
-        getSimulationResults(simulationId)
-          .then((results) => {
-            setApiState(prev => ({
-              ...prev,
-              status: "success",
-              result: results,
-            }));
-            
-            formatAndDisplayResults(results);
-          })
-          .catch((error) => {
-            console.error("Error getting final results:", error);
-            showBotResponse(`Failed to get final results: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
-          });
-      })
-      .catch((error) => {
-        console.error("Error polling for results:", error);
-        showBotResponse(`Failed to poll for results: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        setApiState(prev => ({ ...prev, status: "error", error: error instanceof Error ? error.message : 'Unknown error' }));
-      });
-  };
-
-  const formatAndDisplayResults = (results: SimulationResults) => {
-    const { global_results, demographic_breakdowns, key_reactions } = results;
-    
-    if (global_results) {
-      showBotResponse(`Overall Score: ${global_results.overall_score.toFixed(2)} (Confidence: ${global_results.confidence.toFixed(2)})`);
-      showBotResponse(`Interpretation: ${global_results.interpretation}`);
-    }
-    
-    if (key_reactions && key_reactions.length > 0) {
-      showBotResponse(`Key Reaction: ${key_reactions[0]}`);
-    }
-    
-    if (demographic_breakdowns) {
-      if (demographic_breakdowns.by_age) {
-        const ageMessage = "Age breakdown: " + 
-          Object.entries(demographic_breakdowns.by_age)
-            .map(([age, score]) => `${age}: ${score.toFixed(2)}`)
-            .join(", ");
-        showBotResponse(ageMessage);
-      }
-      
-      if (demographic_breakdowns.by_political_leaning) {
-        const politicalMessage = "Political breakdown: " + 
-          Object.entries(demographic_breakdowns.by_political_leaning)
-            .map(([leaning, score]) => `${leaning}: ${score.toFixed(2)}`)
-            .join(", ");
-        showBotResponse(politicalMessage);
-      }
-    }
-  };
 
   // Handler for file uploads
   const handleFileUpload = (file: File, mediaType: MediaType) => {
@@ -474,31 +326,6 @@ export default function Home() {
   const handleEditLens = () => {
     setIsSecondInputCondensed(false);
   };
-
-  // Add a function to listen to user messages
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    
-    // If we're waiting for simulation parameters and the user has entered something
-    if (apiState.currentStep === "simulation" && lastMessage && !lastMessage.startsWith("Now, enter")) {
-      // Try to extract a number from the message
-      const match = lastMessage.match(/\b(\d+)\b/);
-      if (match && match[1]) {
-        const agentCount = parseInt(match[1], 10);
-        if (!isNaN(agentCount) && agentCount > 0) {
-          handleRunSimulation(agentCount);
-        }
-      }
-    }
-    
-    // If we're waiting for results and we received a message about checking
-    if (apiState.currentStep === "results" && 
-        lastMessage && 
-        (lastMessage.toLowerCase().includes("check") || 
-         lastMessage.toLowerCase().includes("result"))) {
-      handleCheckResults();
-    }
-  }, [messages, apiState.currentStep, apiState.simulationId, handleRunSimulation, handleCheckResults]);
 
   return (
     <div className={`w-dvw h-dvh flex flex-col relative font-overused-grotesk justify-center items-center transition-colors duration-300 ease-in-out ${getBgColor()} overflow-hidden`}>

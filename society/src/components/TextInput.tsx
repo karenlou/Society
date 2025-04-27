@@ -201,6 +201,15 @@ export const TextInput: React.FC<TextInputProps> = ({
             className="w-full resize-none bg-transparent rounded outline-none placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white text-sm max-h-40 mb-5 overflow-y-auto"
             style={{ scrollbarWidth: 'none' }}
           />
+          
+          {/* Hidden file input */}
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            className="hidden" 
+            onChange={handleFileChange}
+            accept="image/*,video/*,audio/*"
+          />
         </form>
       )}
       
@@ -217,7 +226,37 @@ export const TextInput: React.FC<TextInputProps> = ({
           {loadingMessage || 'Processing...'} {/* Fallback message */}
         </div>
       )}
+      
+      {/* File name display if file is selected */}
+      {fileName && !isCondensed && (
+        <div className="mt-2 px-5 text-sm text-gray-700 font-medium">
+          File: {fileName}
+        </div>
+      )}
     </div>
+
+      {/* File upload button - only shown when not condensed */}
+      {!isCondensed && onFileUpload && (
+        <button
+          type="button"
+          onClick={handleAttachClick}
+          disabled={isLoading}
+          className={cn(
+            'absolute bottom-3 right-[120px]',
+            'px-3 py-1 rounded transition-colors text-sm font-medium',
+            'border border-gray-300',
+            isLoading
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+          )}
+          aria-label="Attach file"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+          </svg>
+        </button>
+      )}
+
       <button
         type="button"
         onClick={() => isCondensed ? onEdit?.() : handleSubmit()}
@@ -225,6 +264,7 @@ export const TextInput: React.FC<TextInputProps> = ({
         className={cn(
           'absolute bottom-3 right-5',
           'px-4 py-1 rounded transition-colors text-sm font-medium flex items-center space-x-1',
+          
           isLoading
             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
             : (isCondensed || value.trim())
